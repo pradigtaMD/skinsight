@@ -14,14 +14,13 @@ export default function SkinSight() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   
-  // STATE BARU: Untuk menyimpan dimensi gambar asli vs dimensi di layar HP
   const [imgDimensions, setImgDimensions] = useState<{cw: number, ch: number, nw: number, nh: number} | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // ==========================================
-  // VARIABEL API UTAMA (VERCEL DYNAMIC URL)
+  // VARIABEL API UTAMA
   // ==========================================
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -119,14 +118,13 @@ export default function SkinSight() {
   };
 
   // ==========================================
-  // LOGIKA REKOMENDASI LENGKAP (ANTI-HILANG & FULL SCROLL)
+  // LOGIKA REKOMENDASI LENGKAP (STRICT CONTENT-BASED FILTERING)
   // ==========================================
   const processAnalysis = async (file: File) => {
     setLoading(true);
     const formData = new FormData();
     formData.append('file', file);
     try {
-      // Menggunakan variabel API_URL yang sudah dideklarasikan di atas
       const response = await fetch(`${API_URL}/api/analyze`, { method: 'POST', body: formData });
       const data = await response.json();
       
@@ -134,7 +132,6 @@ export default function SkinSight() {
         setResults(data);
         
         const labels = data.detected_problems ? data.detected_problems.map((p: string) => p.toLowerCase()) : [];
-        
         const concernToId: { [key: string]: number } = {
           "acne": 1, 
           "acne_scars": 2, 
@@ -151,47 +148,76 @@ export default function SkinSight() {
           const allProducts = await prodResponse.json();
           let filteredProducts = [];
           
-          if (labels.length === 0) {
-             filteredProducts = data.recommendations?.products || [];
-          } else {
-             filteredProducts = allProducts.filter((p: any) => {
-               if (p.is_available === false || p.is_available === 0) return false;
-               
-               const matchById = activeCategoryIds.includes(p.skin_category_id);
-               const dbClaim = (p.claim_category || "").toLowerCase();
-               let matchByText = false;
-               
-               // Logika pencocokan teks yang sudah dibersihkan
-               if (labels.includes("acne") && dbClaim.includes("acne")) matchByText = true;
-               if (labels.includes("wrinkles") && dbClaim.includes("anti-aging")) matchByText = true;
-               if ((labels.includes("acne scars") || labels.includes("acne_scars")) && dbClaim.includes("brightening")) matchByText = true;
-               
-               // PERBAIKAN: Hanya tersisa blackheads untuk exfoliating
-               if (labels.includes("blackheads") && dbClaim.includes("exfoliating")) matchByText = true;
-               
-               return matchById || matchByText;
-             });
+          // ==========================================
+          // LOGIKA 1: WAJAH BERSIH (DAILY MAINTENANCE)
+          // ==========================================
+          if (labels.length === 0) { 
+            const dailyClaims = ["daily", "hydrating"];
+            filteredProducts = allProducts.filter((p: any) => {
+              if (p.is_available === false || p.is_available === 0) return false;
+              // Hanya ambil produk dasar
+              const basicTypes = ["FACE WASH", "TONER", "SERUM", "MOISTURIZER", "SUNSCREEN", "DAILY"];
+              const isBasicType = basicTypes.includes((p.product_type || "").toUpperCase());
+              
+              // HARUS berlabel daily atau hydrating
+              const pClaim = (p.claim_category || "").toLowerCase();
+              const isDailyClaim = dailyClaims.some(c => pClaim.includes(c));
+              
+              return isBasicType && isDailyClaim;
+            });
+          }
+          // ==========================================
+          // LOGIKA 2: STRICT CONTENT-BASED FILTERING (UNTUK SKRIPSI)
+          // ==========================================
+          else {
+            filteredProducts = allProducts.filter((p: any) => {
+              // 1. Abaikan produk habis
+              if (p.is_available === false || p.is_available === 0) return false;
+              
+              // 2. Cocokkan ID Kategori Kulit (Jika ada di database)
+              const matchById = activeCategoryIds.includes(p.skin_category_id);
+              
+              // 3. Cocokkan Teks Label AI dengan Claim Produk secara KETAT
+              const dbClaim = (p.claim_category || "").toLowerCase();
+              let matchByText = false;
+              
+              if (labels.includes("acne") && dbClaim.includes("acne")) matchByText = true;
+              if (labels.includes("wrinkles") && dbClaim.includes("anti-aging")) matchByText = true;
+              // Untuk Acne Scars, algoritma mencari claim: Brightening, Scar, atau Dark Spot
+              if ((labels.includes("acne scars") || labels.includes("acne_scars")) && (dbClaim.includes("brightening") || dbClaim.includes("scar") || dbClaim.includes("dark spot"))) matchByText = true;
+              // Untuk Blackheads, algoritma mencari claim: Exfoliating atau Pore
+              if (labels.includes("blackheads") && (dbClaim.includes("exfoliating") || dbClaim.includes("pore"))) matchByText = true;
+              
+              // PRODUK HANYA LOLOS JIKA BENAR-BENAR MATCH (TIDAK ADA PENAMBALAN PRODUK DAILY)
+              return matchById || matchByText;
+            });
           }
 
-          if (labels.length > 0 && filteredProducts.length === 0 && allProducts.length > 0) {
-            filteredProducts = allProducts.filter((p: any) => p.is_available !== false);
-          }
-          
-          if (labels.length === 0 && filteredProducts.length === 0) {
-            filteredProducts = allProducts.filter((p: any) => 
-              p.is_available !== false && 
-              ["FACE WASH", "MOISTURIZER", "SUNSCREEN"].includes((p.product_type || "").toUpperCase())
-            );
-          }
-
+          // ==========================================
+          // GROUPING & URUTAN TAMPILAN
+          // ==========================================
           const grouped = filteredProducts.reduce((acc: any, curr: any) => {
-            const type = (curr.product_type || "ESSENTIAL CARE").toUpperCase(); 
+            const type = (curr.product_type || "EXTRA CARE").toUpperCase(); 
             if (!acc[type]) acc[type] = [];
-            acc[type].push(curr);
-            return acc;
+            acc[type].push(curr); return acc;
           }, {});
 
-          const structuredRoutine = Object.keys(grouped).map(key => ({ type: key, items: grouped[key] }));
+          // Pastikan jika ada tahapan yang lolos filter, urutannya tetap benar (CTMP)
+          const stepOrder = ["FACE WASH", "TONER", "SERUM", "MOISTURIZER", "SUNSCREEN"];
+          const structuredRoutine: any[] = [];
+
+          stepOrder.forEach(step => {
+            if (grouped[step]) {
+              structuredRoutine.push({ type: step, items: grouped[step] });
+              delete grouped[step]; // Hapus agar tidak dobel
+            }
+          });
+
+          // Masukkan sisa tipe produk (seperti Spot Treatment atau Masker) yang tidak ada di urutan dasar
+          Object.keys(grouped).forEach(key => {
+            structuredRoutine.push({ type: key, items: grouped[key] });
+          });
+
           setLocalProducts(structuredRoutine); 
         }
       }
@@ -202,7 +228,6 @@ export default function SkinSight() {
       setLoading(false);
     }
   };
-
   return (
     <main className="min-h-screen bg-[#FDFBF7] text-[#3A2E2B] font-sans">
       
@@ -260,28 +285,17 @@ export default function SkinSight() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* ========================================== */}
-          {/* KIRI: UPLOAD / KAMERA (DIBUAT STICKY & TINGGI TETAP) */}
-          {/* ========================================== */}
           <div className="lg:col-span-5 bg-white p-5 md:p-6 rounded-3xl shadow-xl shadow-[#660033]/5 border border-[#EAE3D9] lg:sticky lg:top-32 lg:z-20 transition-all duration-300 flex flex-col">
-            
-            {/* 1. MENGUNCI TINGGI KOTAK AGAR TOMBOL TIDAK TERDORONG */}
             <div className="relative w-full overflow-hidden rounded-2xl bg-[#FDFBF7] border-2 border-dashed border-[#D2C5B8] flex flex-col items-center justify-center h-[380px] md:h-[450px] shrink-0">
-              
               {isCameraOpen ? (
                 <div className="relative w-full h-full flex flex-col items-center bg-black overflow-hidden">
                   <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
-                  
-                  {/* 2. PANDUAN SILUET WAJAH OVAL (CLOSE-UP GUIDE) */}
                   <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10 overflow-hidden">
-                    {/* Bentuk Oval dengan efek gelap di luarnya */}
                     <div className="w-[65%] h-[75%] border-[3px] border-dashed border-white/60 rounded-[100%] shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"></div>
-                    {/* Label Instruksi */}
                     <span className="absolute bottom-8 md:bottom-10 text-[#FDFBF7] text-[10px] md:text-xs uppercase tracking-widest font-black bg-[#660033]/90 px-5 py-2 rounded-full backdrop-blur-md shadow-lg border border-white/20 text-center animate-pulse">
                       Posisikan Wajah Di Sini
                     </span>
                   </div>
-                  
                 </div>
               ) : image ? (
                 <div className="relative w-full h-full rounded-xl overflow-hidden bg-black">
@@ -300,14 +314,11 @@ export default function SkinSight() {
                       });
                     }}
                   />
-                  
                   {loading && (
                     <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-20">
                       <div className="w-10 h-10 border-4 border-[#660033] border-t-transparent rounded-full animate-spin"></div>
                     </div>
                   )}
-                  
-                  {/* KALIBRASI AKURAT BOUNDING BOX */}
                   {!loading && imgDimensions && results?.bounding_boxes?.length > 0 && (() => {
                     const { cw, ch, nw, nh } = imgDimensions;
                     const scale = Math.max(cw / nw, ch / nh);
@@ -352,7 +363,6 @@ export default function SkinSight() {
               )}
             </div>
 
-            {/* 3. TOMBOL AKSI */}
             <div className="mt-6 space-y-3 shrink-0">
               <input type="file" ref={fileInputRef} onChange={handleUpload} className="hidden" accept="image/*" />
               {isCameraOpen ? (
@@ -379,9 +389,6 @@ export default function SkinSight() {
             </div>
           </div>
           
-          {/* ========================================== */}
-          {/* KANAN: HASIL DETEKSI & REKOMENDASI */}
-          {/* ========================================== */}
           <div className="lg:col-span-7 space-y-8">
             <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl shadow-[#660033]/5 border border-[#EAE3D9]">
               <h2 className="text-xl text-[#660033] mb-4 font-serif font-bold" style={{ fontFamily: 'var(--font-playfair), serif' }}>Skin Concerns</h2>
@@ -399,55 +406,92 @@ export default function SkinSight() {
             </div>
 
             <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl shadow-[#660033]/5 border border-[#EAE3D9]">
-              <h2 className="text-xl text-[#660033] mb-2 font-serif font-bold" style={{ fontFamily: 'var(--font-playfair), serif' }}>Your Daily Routine</h2>
-              <p className="text-sm text-[#8B736D] mb-6">Pilihan rutinitas skincare berdasarkan kondisi kulit Anda.</p>
+              <h2 className="text-xl text-[#660033] mb-2 font-serif font-bold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+                {results && results.detected_problems?.length === 0 ? "Daily Maintenance" : "Your Daily Routine"}
+              </h2>
+              
+              <div className="mb-6">
+                <p className="text-sm text-[#8B736D] mb-3">
+                  {results && results.detected_problems?.length === 0 
+                    ? "Perawatan dasar harian untuk menjaga kulit tetap bersih dan terlindungi." 
+                    : "Pilihan rutinitas skincare berdasarkan kondisi kulit Anda."}
+                </p>
+
+                {/* CATATAN PENTING PENGGANTI LABEL EKSKLUSIF */}
+                <div className="flex items-start gap-3 bg-[#660033]/5 p-3.5 rounded-xl border border-[#660033]/10">
+                  <span className="text-[#660033] text-lg leading-none">💡</span>
+                  <p className="text-[10px] md:text-xs text-[#8B736D] leading-relaxed">
+                    <span className="font-bold text-[#660033]">Catatan:</span> Rekomendasi mencakup <i>skincare</i> komersial pasaran dan produk <b><i>Medical Grade </i></b> (standar klinik medis) yang diformulasikan khusus untuk perawatan intensif.
+                  </p>
+                </div>
+              </div>
               
               {localProducts.length > 0 ? (
                 <div className="space-y-8 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                  {localProducts.map((category: any, catIdx: number) => (
-                    <div key={catIdx}>
-                      <h3 className="text-xs md:text-sm font-bold text-[#A58D87] tracking-[0.2em] mb-4 border-b border-[#EAE3D9] pb-2 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-[#660033]"></span> STEP: {category.type}
-                      </h3>
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-5">
-                        {category.items.map((item: any, idx: number) => (
-                          <div key={idx} className="group relative p-4 rounded-2xl bg-[#FDFBF7] border border-[#EAE3D9] hover:shadow-lg transition-all overflow-hidden cursor-pointer flex flex-col h-full min-h-[140px]">
-                            
-                            <div className="transition-opacity duration-500 group-hover:opacity-0 flex items-center gap-4 h-full">
-                              <div className="w-20 h-24 md:w-24 md:h-28 shrink-0 bg-white rounded-xl border border-[#EAE3D9] p-2 flex items-center justify-center overflow-hidden shadow-inner">
-                                <img 
-                                  src={item.image_url || "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400"} 
-                                  alt={item.product_name} 
-                                  className="w-full h-full object-contain mix-blend-multiply"
-                                />
-                              </div>
+                  {localProducts.map((category: any, catIdx: number) => {
+                    const categoryTitle = (category.type || "").trim().toUpperCase() === "DAILY" ? "DAILY MAINTENANCE" : category.type;
+                    
+                    return (
+                      <div key={catIdx}>
+                        <h3 className="text-xs md:text-sm font-bold text-[#A58D87] tracking-[0.2em] mb-4 border-b border-[#EAE3D9] pb-2 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-[#660033]"></span> STEP: {categoryTitle}
+                        </h3>
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-5">
+                          {category.items.map((item: any, idx: number) => {
+                           const productLabel = (item.product_type || "").trim().toUpperCase() === "DAILY" ? "DAILY MAINTENANCE" : item.product_type;
 
-                              <div className="flex flex-col flex-1 h-full justify-center">
-                                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                                  <p className="text-[9px] md:text-[10px] font-bold text-[#A58D87] uppercase tracking-[0.2em]">{item.product_type}</p>
-                                  {item.claim_category && (
-                                    <span className="bg-[#660033]/10 text-[#660033] px-2 py-0.5 rounded text-[8px] md:text-[9px] font-black uppercase tracking-wider border border-[#660033]/20">
-                                      {item.claim_category.split(' &')[0]}
-                                    </span>
-                                  )}
+                            return (
+                              <div key={idx} className="group relative p-4 rounded-2xl bg-[#FDFBF7] border border-[#EAE3D9] hover:shadow-lg transition-all overflow-hidden cursor-pointer flex flex-col h-full min-h-[140px]">
+                                
+                                <div className="transition-opacity duration-500 group-hover:opacity-0 flex items-center gap-4 h-full">
+                                  <div className="w-20 h-24 md:w-24 md:h-28 shrink-0 bg-white rounded-xl border border-[#EAE3D9] p-2 flex items-center justify-center overflow-hidden shadow-inner">
+                                    <img 
+                                      src={item.image_url ? (item.image_url.includes('localhost') ? item.image_url.replace('http://localhost:8000', API_URL) : item.image_url) : "https://via.placeholder.com/150"} 
+                                      alt={item.product_name} 
+                                      className="w-full h-full object-contain mix-blend-multiply"
+                                    />
+                                  </div>
+
+                                  <div className="flex flex-col flex-1 h-full justify-center">
+                                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                      {/* Nama tipe produk dikembalikan seperti asli (FACE WASH, SERUM, dll) */}
+                                      <p className="text-[9px] md:text-[10px] font-bold text-[#A58D87] uppercase tracking-[0.2em]">{item.product_type}</p>
+                                      
+                                      {/* DI SINI PERUBAHANNYA: Jika claim dari database adalah "Daily", ubah jadi "DAILY MAINTENANCE" */}
+                                      {item.claim_category && (
+                                        <span className="bg-[#660033]/10 text-[#660033] px-2 py-0.5 rounded text-[8px] md:text-[9px] font-black uppercase tracking-wider border border-[#660033]/20">
+                                          {item.claim_category.split(' &')[0].trim().toUpperCase() === "DAILY" 
+                                            ? "DAILY MAINTENANCE" 
+                                            : item.claim_category.split(' &')[0]}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {/* --- KODE TANDA / BADGE CLINIC GRADE OTOMATIS --- */}
+                                    {["dermaxp", "theraskin", "topicare", "melanox", "parasol", "acnacare"].includes((item.brand || "").toLowerCase()) && (
+                                      <span className="inline-flex items-center gap-1 bg-gradient-to-r from-[#660033] to-[#8B736D] text-white px-2 py-0.5 rounded text-[8px] md:text-[9px] font-bold uppercase tracking-widest shadow-sm w-fit mb-1.5">
+                                        ✦ Medical Grade
+                                      </span>
+                                    )}
+
+                                    <p className="font-bold text-[#3A2E2B] text-sm md:text-base leading-snug mb-1 line-clamp-2">{item.product_name}</p>
+                                    <p className="text-[10px] md:text-xs text-[#8B736D] mb-2">{item.brand}</p>
+                                    <p className="text-[#660033] font-bold text-xs md:text-sm mt-auto">
+                                      {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(item.price)}
+                                    </p>
+                                  </div>
                                 </div>
-                                <p className="font-bold text-[#3A2E2B] text-sm md:text-base leading-snug mb-1 line-clamp-2">{item.product_name}</p>
-                                <p className="text-[10px] md:text-xs text-[#8B736D] mb-2">{item.brand}</p>
-                                <p className="text-[#660033] font-bold text-xs md:text-sm mt-auto">
-                                  {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(item.price)}
-                                </p>
-                              </div>
-                            </div>
 
-                            <div className="absolute inset-0 bg-[#660033] text-[#FDFBF7] p-4 md:p-6 flex flex-col justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10 overflow-y-auto">
-                              <p className="text-[9px] md:text-[10px] font-bold text-[#EAE3D9] uppercase tracking-wider mb-2">Bahan Utama</p>
-                              <p className="text-[10px] md:text-xs font-light leading-relaxed line-clamp-6">{item.ingredients_list}</p>
-                            </div>
-                           </div>
-                        ))}
+                                <div className="absolute inset-0 bg-[#660033] text-[#FDFBF7] p-4 md:p-6 flex flex-col justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10 overflow-y-auto">
+                                  <p className="text-[9px] md:text-[10px] font-bold text-[#EAE3D9] uppercase tracking-wider mb-2">Bahan Utama</p>
+                                  <p className="text-[10px] md:text-xs font-light leading-relaxed line-clamp-6">{item.ingredients_list}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : <p className="text-[#8B736D] italic bg-[#FDFBF7] p-6 rounded-2xl border border-dashed border-[#D2C5B8] text-center text-sm">Waiting for your beautiful face...</p>}
             </div>
@@ -455,7 +499,6 @@ export default function SkinSight() {
             <div className="bg-white p-6 md:p-8 rounded-3xl shadow-xl shadow-[#660033]/5 border border-[#EAE3D9]">
               <h2 className="text-xl text-[#660033] mb-6 font-serif font-bold" style={{ fontFamily: 'var(--font-playfair), serif' }}>Clinic Treatments</h2>
               
-              {/* PERBAIKAN: Tata letak Grid 2-Kolom untuk Treatment Desktop yang lebih estetik */}
               {results?.recommendations?.treatments?.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
                   {results.recommendations.treatments.map((item: any, idx: number) => (
@@ -469,8 +512,9 @@ export default function SkinSight() {
                           <span className="text-[9px] md:text-[10px] font-bold text-[#A58D87] uppercase tracking-widest block mb-1">
                             {item.type || "CLINIC CARE"}
                           </span>
+                          {/* PERBAIKAN: Menggunakan item.name sesuai nama kolom di database */}
                           <h3 className="font-bold text-[#3A2E2B] text-base md:text-lg leading-tight">
-                            {item.treatment_name}
+                            {item.name}
                           </h3>
                         </div>
                       </div>
@@ -481,23 +525,24 @@ export default function SkinSight() {
                         </p>
                       </div>
 
-                      <div className="mt-auto pt-4 border-t border-[#EAE3D9]/80 flex justify-between items-end">
-                        <div>
-                          <span className="text-[9px] text-[#A58D87] uppercase tracking-wider font-bold block mb-1">
-                            Metode
-                          </span>
-                          <span className="text-[10px] md:text-xs text-[#3A2E2B] font-medium bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
+                      <div className="mt-auto pt-4 border-t border-[#EAE3D9]/80 flex flex-col gap-2.5">
+                        
+                        <div className="flex items-center text-[11px] md:text-xs">
+                          <span className="font-bold text-[#A58D87] uppercase tracking-wider w-[60px] shrink-0">Metode</span>
+                          <span className="text-[#A58D87] mr-2">:</span>
+                          <span className="text-[10px] md:text-xs text-[#3A2E2B] font-medium bg-gray-50 px-2 py-1 rounded-md border border-gray-100 capitalize">
                             {item.method || "Tindakan Medis"}
                           </span>
                         </div>
-                        <div className="text-right">
-                          <span className="text-[9px] text-[#A58D87] uppercase tracking-wider font-bold block mb-1">
-                            Estimasi
-                          </span>
-                          <span className="text-sm md:text-base font-black text-[#660033]">
+
+                        <div className="flex items-center text-[11px] md:text-xs">
+                          <span className="font-bold text-[#A58D87] uppercase tracking-wider w-[60px] shrink-0">Estimasi</span>
+                          <span className="text-[#A58D87] mr-2">:</span>
+                          <span className="font-bold text-[#660033]">
                             {item.price ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(item.price) : 'Hubungi Klinik'}
                           </span>
                         </div>
+
                       </div>
 
                     </div>
@@ -509,6 +554,17 @@ export default function SkinSight() {
                 </p>
               )}
             </div>
+
+            {/* TOMBOL LANJUT KONSULTASI YANG KEMBALI DIMUNCULKAN */}
+            {results && (
+              <div className="mt-8 bg-[#660033]/5 border border-[#660033]/20 rounded-3xl p-6 md:p-8 text-center shadow-inner">
+                <h3 className="text-lg md:text-xl font-bold text-[#660033] mb-2 font-serif">Butuh Penanganan Lebih Lanjut?</h3>
+                <p className="text-xs md:text-sm text-[#8B736D] mb-5 max-w-sm mx-auto">Dapatkan resep medis yang akurat dan tindakan langsung dari dokter spesialis estetika kami.</p>
+                <Link href="/klinik" className="inline-block w-full md:w-auto px-8 py-3.5 bg-[#660033] text-white font-bold rounded-xl shadow-lg hover:bg-[#4A0024] transition-all text-xs uppercase tracking-widest">
+                  Lanjut Konsultasi Dokter
+                </Link>
+              </div>
+            )}
 
           </div>
         </div>
