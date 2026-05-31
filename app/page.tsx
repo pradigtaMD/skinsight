@@ -20,6 +20,11 @@ export default function SkinSight() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // ==========================================
+  // VARIABEL API UTAMA (VERCEL DYNAMIC URL)
+  // ==========================================
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
   const slides = [
     {
       image: "https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?q=80&w=2000&auto=format&fit=crop",
@@ -121,7 +126,8 @@ export default function SkinSight() {
     const formData = new FormData();
     formData.append('file', file);
     try {
-      const response = await fetch('http://192.168.100.87:8000/api/analyze', { method: 'POST', body: formData });
+      // Menggunakan variabel API_URL yang sudah dideklarasikan di atas
+      const response = await fetch(`${API_URL}/api/analyze`, { method: 'POST', body: formData });
       const data = await response.json();
       
       if (data.status === "success") {
@@ -139,7 +145,7 @@ export default function SkinSight() {
 
         const activeCategoryIds = labels.map((l: string) => concernToId[l]).filter((id: number | undefined) => id !== undefined);
         
-        const prodResponse = await fetch(`http://192.168.100.87:8000/api/products`);
+        const prodResponse = await fetch(`${API_URL}/api/products`);
         
         if (prodResponse.ok) {
           const allProducts = await prodResponse.json();
@@ -255,10 +261,6 @@ export default function SkinSight() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* ========================================== */}
-          {/* KIRI: UPLOAD / KAMERA (DIBUAT STICKY) */}
-          {/* ========================================== */}
-          {/* PERBAIKAN: Penambahan lg:sticky lg:top-32 lg:z-20 agar mengikuti scroll pada desktop */}
-          {/* ========================================== */}
           {/* KIRI: UPLOAD / KAMERA (DIBUAT STICKY & TINGGI TETAP) */}
           {/* ========================================== */}
           <div className="lg:col-span-5 bg-white p-5 md:p-6 rounded-3xl shadow-xl shadow-[#660033]/5 border border-[#EAE3D9] lg:sticky lg:top-32 lg:z-20 transition-all duration-300 flex flex-col">
@@ -350,7 +352,7 @@ export default function SkinSight() {
               )}
             </div>
 
-            {/* 3. TOMBOL AKSI (Akan selalu tetap di posisinya) */}
+            {/* 3. TOMBOL AKSI */}
             <div className="mt-6 space-y-3 shrink-0">
               <input type="file" ref={fileInputRef} onChange={handleUpload} className="hidden" accept="image/*" />
               {isCameraOpen ? (
@@ -376,6 +378,7 @@ export default function SkinSight() {
               )}
             </div>
           </div>
+          
           {/* ========================================== */}
           {/* KANAN: HASIL DETEKSI & REKOMENDASI */}
           {/* ========================================== */}

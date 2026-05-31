@@ -10,10 +10,16 @@ export default function EdukasiPage() {
 
   const filters = ['All', 'Skincare 101', 'Myths vs Facts', 'Tutorials'];
 
+  // ==========================================
+  // VARIABEL API UTAMA (VERCEL DYNAMIC URL)
+  // ==========================================
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
   useEffect(() => {
     const fetchEdukasi = async () => {
       try {
-        const response = await fetch('http://192.168.100.87:8000');
+        // Menggunakan API_URL dan menambahkan endpoint /api/educations
+        const response = await fetch(`${API_URL}/api/educations`);
         const result = await response.json();
         if (result.status === "success") {
           setEdukasiData(result.data);

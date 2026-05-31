@@ -16,11 +16,16 @@ export default function KatalogPage() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState<string>('All');
 
+  // ==========================================
+  // VARIABEL API UTAMA (VERCEL DYNAMIC URL)
+  // ==========================================
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
   // Fetch Treatments
   useEffect(() => {
     const fetchTreatments = async () => {
       try {
-        const response = await fetch('http://192.168.100.87:8000/api/treatments/all');
+        const response = await fetch(`${API_URL}/api/treatments/all`);
         const data = await response.json();
         setTreatments(data);
       } catch (error) {
@@ -38,8 +43,7 @@ export default function KatalogPage() {
       const fetchProducts = async () => {
         setLoadingProducts(true);
         try {
-          // PERBAIKAN: Disamakan menggunakan 127.0.0.1 agar mencegah error CORS
-          const response = await fetch('http://192.168.100.87:8000/api/products');
+          const response = await fetch(`${API_URL}/api/products`);
           const data = await response.json();
           setProducts(data);
         } catch (error) {

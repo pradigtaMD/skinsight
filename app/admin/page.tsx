@@ -13,14 +13,14 @@ export default function AdminDashboard() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // ==========================================
-  // STATE DATA UTAMA DASHBOARD (PERBAIKAN: Tambah 'bookings')
+  // STATE DATA UTAMA DASHBOARD
   // ==========================================
   const [activeTab, setActiveTab] = useState<'dokter' | 'edukasi' | 'skincare' | 'treatments' | 'bookings'>('dokter');
   const [doctors, setDoctors] = useState<any[]>([]);
   const [educations, setEducations] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [treatments, setTreatments] = useState<any[]>([]);
-  const [bookings, setBookings] = useState<any[]>([]); // State baru untuk daftar reservasi pasien
+  const [bookings, setBookings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // ==========================================
@@ -30,7 +30,7 @@ export default function AdminDashboard() {
   const [searchEdu, setSearchEdu] = useState("");
   const [searchSkincare, setSearchSkincare] = useState("");
   const [searchTreatment, setSearchTreatment] = useState("");
-  const [searchBooking, setSearchBooking] = useState(""); // State pencarian booking baru
+  const [searchBooking, setSearchBooking] = useState("");
 
   // ==========================================
   // STATE MODAL & FORM
@@ -60,6 +60,11 @@ export default function AdminDashboard() {
   });
   
   // ==========================================
+  // VARIABEL API UTAMA (VERCEL DYNAMIC URL)
+  // ==========================================
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+  // ==========================================
   // EFEK CEK LOGIN SAAT HALAMAN DIBUKA
   // ==========================================
   useEffect(() => {
@@ -86,7 +91,7 @@ export default function AdminDashboard() {
     setLoginError("");
 
     try {
-      const response = await fetch('http://localhost:8000/api/admin/login', {
+      const response = await fetch(`${API_URL}/api/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -117,27 +122,27 @@ export default function AdminDashboard() {
   };
 
   // ==========================================
-  // FUNGSI FETCH DATA KESELURUHAN (PERBAIKAN: Tambah Fetch Bookings)
+  // FUNGSI FETCH DATA KESELURUHAN
   // ==========================================
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const resDoc = await fetch('http://localhost:8000/api/doctors');
+      const resDoc = await fetch(`${API_URL}/api/doctors`);
       if (resDoc.ok) { 
         const data = await resDoc.json(); 
         if (data.status === "success") setDoctors(data.data); 
       }
 
-      const resEdu = await fetch('http://localhost:8000/api/educations');
+      const resEdu = await fetch(`${API_URL}/api/educations`);
       if (resEdu.ok) { 
         const data = await resEdu.json(); 
         if (data.status === "success") setEducations(data.data); 
       }
 
-      const resProd = await fetch('http://localhost:8000/api/products');
+      const resProd = await fetch(`${API_URL}/api/products`);
       if (resProd.ok) setProducts(await resProd.json());
 
-      const resTreat = await fetch('http://localhost:8000/api/treatments/all');
+      const resTreat = await fetch(`${API_URL}/api/treatments/all`);
       if (resTreat.ok) {
         const rawData = await resTreat.json();
         const dataWithIds = rawData.map((t: any, index: number) => ({
@@ -147,12 +152,8 @@ export default function AdminDashboard() {
         setTreatments(dataWithIds);
       }
 
-      // Integrasi Baru: Mengambil data pasien yang sudah melakukan booking dari FastAPI
-      // ========================================================
       // AMBIL DATA RESERVASI PASIEN
-      // ========================================================
-      // AMBIL DATA RESERVASI PASIEN
-      const resBook = await fetch('http://localhost:8000/api/bookings');
+      const resBook = await fetch(`${API_URL}/api/bookings`);
       if (resBook.ok) {
         const bookingResult = await resBook.json();
         if (bookingResult.status === "success" && Array.isArray(bookingResult.data)) {
@@ -161,7 +162,6 @@ export default function AdminDashboard() {
           setBookings(bookingResult);
         }
       } else {
-        // PERBAIKAN SEMENTARA: Tangkap pesan error asli dari backend
         const errorDetail = await resBook.text();
         console.error(`Gagal memuat data booking! Status: ${resBook.status}. Detail Backend:`, errorDetail);
       }
@@ -176,7 +176,7 @@ export default function AdminDashboard() {
     formData.append('file', file);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/doctors/${doctorId}/image`, {
+      const response = await fetch(`${API_URL}/api/doctors/${doctorId}/image`, {
         method: 'POST',
         body: formData, 
       });
@@ -210,7 +210,7 @@ export default function AdminDashboard() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const response = await fetch('http://localhost:8000/api/doctors', {
+      const response = await fetch(`${API_URL}/api/doctors`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(doctorForm)
@@ -233,7 +233,7 @@ export default function AdminDashboard() {
   const toggleStatus = async (doctorId: number, currentStatus: string) => {
     const newStatus = currentStatus === 'Available' ? 'Fully Booked' : 'Available';
     try {
-      const response = await fetch(`http://localhost:8000/api/doctors/${doctorId}/status`, {
+      const response = await fetch(`${API_URL}/api/doctors/${doctorId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -242,7 +242,6 @@ export default function AdminDashboard() {
         alert("Status dokter berhasil diupdate!");
         fetchData();
       } else {
-        // PERBAIKAN: Tambahkan ini agar sistem tidak diam saja jika gagal
         alert(`Gagal mengupdate status! Server mengembalikan error.`);
       }
     } catch (error) {
@@ -257,7 +256,7 @@ export default function AdminDashboard() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const response = await fetch('http://localhost:8000/api/educations', {
+      const response = await fetch(`${API_URL}/api/educations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(eduForm)
@@ -280,7 +279,7 @@ export default function AdminDashboard() {
   const handleDeleteEducation = async (id: number) => {
     if (!confirm("Yakin ingin menghapus konten ini?")) return;
     try {
-      const response = await fetch(`http://localhost:8000/api/educations/${id}`, { method: 'DELETE' });
+      const response = await fetch(`${API_URL}/api/educations/${id}`, { method: 'DELETE' });
       if (response.ok) {
         setEducations(prev => prev.filter(item => item.id !== id));
         alert("Konten berhasil dihapus!");
@@ -339,7 +338,7 @@ export default function AdminDashboard() {
     setProducts(products.map(p => p.id === id ? { ...p, is_available: newStatus } : p));
     
     try {
-      const response = await fetch(`http://localhost:8000/api/products/${id}/status`, {
+      const response = await fetch(`${API_URL}/api/products/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_available: newStatus })
@@ -506,7 +505,6 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex gap-4 border-b border-gray-200 pb-px overflow-x-auto custom-scrollbar">
-            {/* PERBAIKAN: Menambahkan opsi tab 'bookings' */}
             {['dokter', 'edukasi', 'skincare', 'treatments', 'bookings'].map((tab) => (
               <button 
                 key={tab}

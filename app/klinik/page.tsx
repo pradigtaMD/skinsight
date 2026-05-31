@@ -16,6 +16,11 @@ export default function KlinikPage() {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ==========================================
+  // VARIABEL API UTAMA (VERCEL DYNAMIC URL)
+  // ==========================================
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
   // Mengambil tanggal hari ini untuk membatasi input masa lalu
   const today = new Date().toISOString().split('T')[0];
 
@@ -29,7 +34,7 @@ export default function KlinikPage() {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const response = await fetch('http://192.168.100.87:8000/api/doctors');
+        const response = await fetch(`${API_URL}/api/doctors`);
         const result = await response.json();
         if (result.status === "success") {
           setDoctors(result.data);
@@ -83,7 +88,7 @@ export default function KlinikPage() {
     
     try {
       const combinedSessionData = `${formData.session_time} | Keluhan: ${formData.keluhan || 'Tidak ada'}`;
-      const response = await fetch('http://192.168.100.87:8000/api/bookings', {
+      const response = await fetch(`${API_URL}/api/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -142,7 +147,7 @@ export default function KlinikPage() {
           background: '#FDFBF7',
           backdrop: 'rgba(102, 0, 51, 0.6)',
           showConfirmButton: false,
-          timer: timeLeft * 1000, // Menyesuaikan timer otomatis SweetAlert (7000ms)
+          timer: timeLeft * 1000,
           timerProgressBar: true,
           allowOutsideClick: false,
           customClass: {
@@ -224,8 +229,7 @@ export default function KlinikPage() {
   };
 
   return (
-<main className="min-h-screen bg-[#FDFBF7] -mt-16 md:-mt-20 pt-28 md:pt-36 pb-28 md:pb-12">      
-      {/* 1. HERO & LOCATION SECTION */}
+<main className="min-h-screen bg-[#FDFBF7] -mt-16 md:-mt-20 pt-28 md:pt-36">      {/* 1. HERO & LOCATION SECTION */}
       <section className="px-5 md:px-10 max-w-7xl mx-auto mb-12 md:mb-16">
         <div className="text-center md:text-left mb-8 md:mb-10">
           <p className="text-[#660033] font-black tracking-[0.2em] md:tracking-[0.3em] text-[10px] md:text-xs mb-3 uppercase opacity-80">
