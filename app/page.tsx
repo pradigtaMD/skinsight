@@ -117,9 +117,6 @@ export default function SkinSight() {
     processAnalysis(file);
   };
 
-  // ==========================================
-  // LOGIKA REKOMENDASI LENGKAP (STRICT CONTENT-BASED FILTERING)
-  // ==========================================
   const processAnalysis = async (file: File) => {
     setLoading(true);
     const formData = new FormData();
@@ -148,72 +145,58 @@ export default function SkinSight() {
           const allProducts = await prodResponse.json();
           let filteredProducts = [];
           
-          // ==========================================
-          // LOGIKA 1: WAJAH BERSIH (DAILY MAINTENANCE)
-          // ==========================================
           if (labels.length === 0) { 
             const dailyClaims = ["daily", "hydrating"];
             filteredProducts = allProducts.filter((p: any) => {
               if (p.is_available === false || p.is_available === 0) return false;
-              // Hanya ambil produk dasar
-              const basicTypes = ["FACE WASH", "TONER", "SERUM", "MOISTURIZER", "SUNSCREEN", "DAILY"];
+              // PERBAIKAN 1: Tambahkan FACIAL WASH dan CLEANSER agar lolos filter Daily
+              const basicTypes = ["FACIAL WASH", "FACE WASH", "CLEANSER", "TONER", "SERUM", "MOISTURIZER", "SUNSCREEN", "DAILY"];
               const isBasicType = basicTypes.includes((p.product_type || "").toUpperCase());
-              
-              // HARUS berlabel daily atau hydrating
               const pClaim = (p.claim_category || "").toLowerCase();
               const isDailyClaim = dailyClaims.some(c => pClaim.includes(c));
-              
               return isBasicType && isDailyClaim;
             });
-          }
-          // ==========================================
-          // LOGIKA 2: STRICT CONTENT-BASED FILTERING (UNTUK SKRIPSI)
-          // ==========================================
-          else {
+          } else {
             filteredProducts = allProducts.filter((p: any) => {
-              // 1. Abaikan produk habis
               if (p.is_available === false || p.is_available === 0) return false;
-              
-              // 2. Cocokkan ID Kategori Kulit (Jika ada di database)
               const matchById = activeCategoryIds.includes(p.skin_category_id);
-              
-              // 3. Cocokkan Teks Label AI dengan Claim Produk secara KETAT
               const dbClaim = (p.claim_category || "").toLowerCase();
               let matchByText = false;
               
               if (labels.includes("acne") && dbClaim.includes("acne")) matchByText = true;
               if (labels.includes("wrinkles") && dbClaim.includes("anti-aging")) matchByText = true;
-              // Untuk Acne Scars, algoritma mencari claim: Brightening, Scar, atau Dark Spot
               if ((labels.includes("acne scars") || labels.includes("acne_scars")) && (dbClaim.includes("brightening") || dbClaim.includes("scar") || dbClaim.includes("dark spot"))) matchByText = true;
-              // Untuk Blackheads, algoritma mencari claim: Exfoliating atau Pore
               if (labels.includes("blackheads") && (dbClaim.includes("exfoliating") || dbClaim.includes("pore"))) matchByText = true;
               
-              // PRODUK HANYA LOLOS JIKA BENAR-BENAR MATCH (TIDAK ADA PENAMBALAN PRODUK DAILY)
               return matchById || matchByText;
             });
           }
 
-          // ==========================================
-          // GROUPING & URUTAN TAMPILAN
-          // ==========================================
-          const grouped = filteredProducts.reduce((acc: any, curr: any) => {
-            const type = (curr.product_type || "EXTRA CARE").toUpperCase(); 
+          const medGradeBrands = ["dermaxp", "topicare", "melanox", "parasol", "acnacare", "atocalm"];
+          const sortedProducts = [...filteredProducts].sort((a, b) => {
+            const aIsMed = medGradeBrands.includes((a.brand || "").toLowerCase()) ? 1 : 0;
+            const bIsMed = medGradeBrands.includes((b.brand || "").toLowerCase()) ? 1 : 0;
+            return bIsMed - aIsMed;
+          });
+
+          const grouped = sortedProducts.reduce((acc: any, curr: any) => {
+            const rawType = curr.product_type || "EXTRA CARE"; 
+            const type = rawType.trim().toUpperCase(); 
             if (!acc[type]) acc[type] = [];
             acc[type].push(curr); return acc;
           }, {});
 
-          // Pastikan jika ada tahapan yang lolos filter, urutannya tetap benar (CTMP)
-          const stepOrder = ["FACE WASH", "TONER", "SERUM", "MOISTURIZER", "SUNSCREEN"];
+          // PERBAIKAN 2: Tambahkan variasi sabun wajah di urutan pertama
+          const stepOrder = ["FACIAL WASH", "FACE WASH", "CLEANSER", "TONER", "SERUM", "MOISTURIZER", "SUNSCREEN"];
           const structuredRoutine: any[] = [];
 
           stepOrder.forEach(step => {
             if (grouped[step]) {
               structuredRoutine.push({ type: step, items: grouped[step] });
-              delete grouped[step]; // Hapus agar tidak dobel
+              delete grouped[step]; 
             }
           });
 
-          // Masukkan sisa tipe produk (seperti Spot Treatment atau Masker) yang tidak ada di urutan dasar
           Object.keys(grouped).forEach(key => {
             structuredRoutine.push({ type: key, items: grouped[key] });
           });
@@ -228,6 +211,7 @@ export default function SkinSight() {
       setLoading(false);
     }
   };
+
   return (
     <main className="min-h-screen bg-[#FDFBF7] text-[#3A2E2B] font-sans">
       
@@ -286,7 +270,8 @@ export default function SkinSight() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           <div className="lg:col-span-5 bg-white p-5 md:p-6 rounded-3xl shadow-xl shadow-[#660033]/5 border border-[#EAE3D9] lg:sticky lg:top-32 lg:z-20 transition-all duration-300 flex flex-col">
-            <div className="relative w-full overflow-hidden rounded-2xl bg-[#FDFBF7] border-2 border-dashed border-[#D2C5B8] flex flex-col items-center justify-center h-[380px] md:h-[450px] shrink-0">
+            
+            <div className={`relative w-full overflow-hidden rounded-2xl flex flex-col items-center justify-center shrink-0 ${image && !isCameraOpen ? 'bg-black min-h-[300px]' : 'bg-[#FDFBF7] border-2 border-dashed border-[#D2C5B8] h-[380px] md:h-[450px]'}`}>
               {isCameraOpen ? (
                 <div className="relative w-full h-full flex flex-col items-center bg-black overflow-hidden">
                   <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
@@ -298,11 +283,12 @@ export default function SkinSight() {
                   </div>
                 </div>
               ) : image ? (
-                <div className="relative w-full h-full rounded-xl overflow-hidden bg-black">
+                <div className="relative w-full flex items-center justify-center">
+                  
                   <img 
                     id="preview-image"
                     src={image} 
-                    className="w-full h-full object-cover block" 
+                    className="w-full h-auto max-h-[550px] object-contain block" 
                     alt="Skin Preview" 
                     onLoad={(e) => {
                       const img = e.currentTarget;
@@ -314,14 +300,17 @@ export default function SkinSight() {
                       });
                     }}
                   />
+                  
                   {loading && (
-                    <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-20">
-                      <div className="w-10 h-10 border-4 border-[#660033] border-t-transparent rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20">
+                      <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
                     </div>
                   )}
+                  
                   {!loading && imgDimensions && results?.bounding_boxes?.length > 0 && (() => {
                     const { cw, ch, nw, nh } = imgDimensions;
-                    const scale = Math.max(cw / nw, ch / nh);
+                    
+                    const scale = Math.min(cw / nw, ch / nh);
                     const xOffset = (cw - nw * scale) / 2;
                     const yOffset = (ch - nh * scale) / 2;
 
@@ -417,11 +406,10 @@ export default function SkinSight() {
                     : "Pilihan rutinitas skincare berdasarkan kondisi kulit Anda."}
                 </p>
 
-                {/* CATATAN PENTING PENGGANTI LABEL EKSKLUSIF */}
                 <div className="flex items-start gap-3 bg-[#660033]/5 p-3.5 rounded-xl border border-[#660033]/10">
                   <span className="text-[#660033] text-lg leading-none">💡</span>
                   <p className="text-[10px] md:text-xs text-[#8B736D] leading-relaxed">
-                    <span className="font-bold text-[#660033]">Catatan:</span> Rekomendasi mencakup <i>skincare</i> komersial pasaran dan produk <b><i>Medical Grade </i></b> (standar klinik medis) yang diformulasikan khusus untuk perawatan intensif.
+                    <span className="font-bold text-[#660033]">Catatan:</span> Rekomendasi mencakup <i>skincare</i> komersial pasaran dan produk <b><i>Medical Grade </i></b> (standar klinik medis) yang diformulasikan khusus untuk perawatan intensif dapat dibeli di klinik.
                   </p>
                 </div>
               </div>
@@ -454,10 +442,8 @@ export default function SkinSight() {
 
                                   <div className="flex flex-col flex-1 h-full justify-center">
                                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                                      {/* Nama tipe produk dikembalikan seperti asli (FACE WASH, SERUM, dll) */}
                                       <p className="text-[9px] md:text-[10px] font-bold text-[#A58D87] uppercase tracking-[0.2em]">{item.product_type}</p>
                                       
-                                      {/* DI SINI PERUBAHANNYA: Jika claim dari database adalah "Daily", ubah jadi "DAILY MAINTENANCE" */}
                                       {item.claim_category && (
                                         <span className="bg-[#660033]/10 text-[#660033] px-2 py-0.5 rounded text-[8px] md:text-[9px] font-black uppercase tracking-wider border border-[#660033]/20">
                                           {item.claim_category.split(' &')[0].trim().toUpperCase() === "DAILY" 
@@ -466,8 +452,8 @@ export default function SkinSight() {
                                         </span>
                                       )}
                                     </div>
-                                    {/* --- KODE TANDA / BADGE CLINIC GRADE OTOMATIS --- */}
-                                    {["dermaxp", "theraskin", "topicare", "melanox", "parasol", "acnacare"].includes((item.brand || "").toLowerCase()) && (
+                                    
+                                    {["dermaxp", "topicare", "melanox", "parasol", "acnacare", "atocalm"].includes((item.brand || "").toLowerCase()) && (
                                       <span className="inline-flex items-center gap-1 bg-gradient-to-r from-[#660033] to-[#8B736D] text-white px-2 py-0.5 rounded text-[8px] md:text-[9px] font-bold uppercase tracking-widest shadow-sm w-fit mb-1.5">
                                         ✦ Medical Grade
                                       </span>
@@ -512,7 +498,6 @@ export default function SkinSight() {
                           <span className="text-[9px] md:text-[10px] font-bold text-[#A58D87] uppercase tracking-widest block mb-1">
                             {item.type || "CLINIC CARE"}
                           </span>
-                          {/* PERBAIKAN: Menggunakan item.name sesuai nama kolom di database */}
                           <h3 className="font-bold text-[#3A2E2B] text-base md:text-lg leading-tight">
                             {item.name}
                           </h3>
@@ -555,7 +540,6 @@ export default function SkinSight() {
               )}
             </div>
 
-            {/* TOMBOL LANJUT KONSULTASI YANG KEMBALI DIMUNCULKAN */}
             {results && (
               <div className="mt-8 bg-[#660033]/5 border border-[#660033]/20 rounded-3xl p-6 md:p-8 text-center shadow-inner">
                 <h3 className="text-lg md:text-xl font-bold text-[#660033] mb-2 font-serif">Butuh Penanganan Lebih Lanjut?</h3>

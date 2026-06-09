@@ -257,7 +257,7 @@ export default function KlinikPage() {
               <span className="w-8 md:w-10 h-[1px] bg-[#660033]"></span>
               <span className="text-[#660033] text-[9px] md:text-[10px] font-black uppercase tracking-widest">Pusat Estetika</span>
             </div>
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#3A2E2B] mb-4 text-center md:text-left">Azzahra Skin Clinic</h2>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#3A2E2B] mb-4 text-center md:text-left">Skin Clinic</h2>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-6">
               <div className="flex gap-2.5 md:gap-3 items-start bg-gray-50/50 p-3 rounded-xl md:bg-transparent md:p-0">
@@ -330,7 +330,7 @@ export default function KlinikPage() {
                       <div className={`absolute -bottom-2 md:-bottom-3 left-1/2 -translate-x-1/2 px-2 py-0.5 md:px-3 md:py-1.5 rounded-full shadow-md border flex items-center gap-1.5 whitespace-nowrap z-10 ${!isAvailable ? 'bg-white border-red-100' : 'bg-white border-[#EAE3D9]'}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${isAvailable ? 'bg-[#25D366] animate-pulse' : 'bg-red-500'}`}></span>
                         <span className={`text-[6px] md:text-[8px] font-black uppercase tracking-widest ${isAvailable ? 'text-[#25D366]' : 'text-red-500'}`}>
-                          {isAvailable ? 'Tersedia' : 'Off Duty'}
+                          {isAvailable ? 'Available' : 'Off Duty'}
                         </span>
                       </div>
                     </div>
