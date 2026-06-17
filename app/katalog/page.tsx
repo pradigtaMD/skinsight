@@ -16,7 +16,17 @@ export default function KatalogPage() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState<string>('All');
 
+  // State untuk melacak overlay di Mobile
+  const [expandedProducts, setExpandedProducts] = useState<number[]>([]);
+
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+  // Toggle Overlay khusus Mobile
+  const toggleIngredients = (productId: number) => {
+    setExpandedProducts(prev => 
+      prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
+    );
+  };
 
   // Fetch Treatments
   useEffect(() => {
@@ -32,7 +42,7 @@ export default function KatalogPage() {
       }
     };
     fetchTreatments();
-  }, []); // <-- Dibiarkan kosong agar tidak error re-render
+  }, []);
 
   // Fetch Products
   useEffect(() => {
@@ -51,14 +61,13 @@ export default function KatalogPage() {
       };
       fetchProducts();
     }
-  }, [activeTab, products.length]); // <-- Dibiarkan aman tanpa API_URL
+  }, [activeTab, products.length]);
 
   const formatRupiah = (angka: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
   };
 
   // --- LOGIKA FILTER PENCARIAN ---
-
   const searchedTreatments = treatments.filter((t: any) => {
     const query = searchQuery.toLowerCase();
     return (
@@ -76,17 +85,13 @@ export default function KatalogPage() {
     return matchClaim && matchSearch;
   });
 
-  // --- LOGIKA PENGURUTAN (SORTING) UTAMAKAN MED-GRADE & STOK ---
-  const medGradeBrands = ["dermaxp", "theraskin", "topicare", "melanox", "parasol", "acnacare"];
-  
+  // --- LOGIKA PENGURUTAN (Berdasarkan Database API) ---
   const sortedProducts = [...filteredProducts].sort((a, b) => {
-    const aIsMed = medGradeBrands.includes((a.brand || "").toLowerCase()) ? 1 : 0;
-    const bIsMed = medGradeBrands.includes((b.brand || "").toLowerCase()) ? 1 : 0;
+    const aIsMed = a.is_medical_grade ? 1 : 0;
+    const bIsMed = b.is_medical_grade ? 1 : 0;
     
-    // 1. Utamakan Med-Grade di atas
     if (aIsMed !== bIsMed) return bIsMed - aIsMed; 
     
-    // 2. Utamakan yang stoknya tersedia (Habis taruh bawah)
     const aHabis = a.is_available === false || a.is_available === 0 || String(a.is_available) === "0" || String(a.is_available).toLowerCase() === "false";
     const bHabis = b.is_available === false || b.is_available === 0 || String(b.is_available) === "0" || String(b.is_available).toLowerCase() === "false";
     
@@ -211,7 +216,7 @@ export default function KatalogPage() {
 
         {activeTab === 'skincare' && (
           <div>
-            <div className="mb-8 md:mb-12 p-5 md:p-6 bg-white rounded-2xl md:rounded-3xl border border-[#EAE3D9] shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+            <div className="mb-6 p-5 md:p-6 bg-white rounded-2xl md:rounded-3xl border border-[#EAE3D9] shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
               <div>
                 <h3 className="font-bold text-[#3A2E2B] text-sm md:text-base mb-1">Katalog Produk</h3>
                 <p className="text-[11px] md:text-xs text-[#8B736D]">Filter produk berdasarkan kategori klaim</p>
@@ -227,6 +232,14 @@ export default function KatalogPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* --- KOTAK INFORMASI MEDICAL GRADE (Diletakkan Strategis) --- */}
+            <div className="mb-8 flex items-start gap-3 bg-[#660033]/5 p-3.5 rounded-2xl border border-[#660033]/10 max-w-7xl mx-auto">
+              <span className="text-[#660033] text-base leading-none pt-0.5">💡</span>
+              <p className="text-[10px] md:text-xs text-[#8B736D] leading-relaxed">
+                <span className="font-bold text-[#660033]">Info Kategori:</span> Produk berlabel <span className="text-[#660033] font-bold">✦ MEDICAL GRADE</span> merupakan <i>skincare</i> yang diformulasikan khusus dan dapat dibeli di klinik.
+              </p>
             </div>
 
             {loadingProducts ? (
@@ -251,25 +264,26 @@ export default function KatalogPage() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-8">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 md:gap-8">
                       {items.map((p: any, i: number) => {
                         const isHabis = p.is_available === false || p.is_available === 0 || String(p.is_available) === "0" || String(p.is_available).toLowerCase() === "false";
                         const claim = p.claim_category || p.ingredients_category;
+                        const isExpanded = expandedProducts.includes(p.id);
 
                         return (
                           <div 
                             key={p.id || i} 
-                            className={`group relative bg-white rounded-[20px] md:rounded-[30px] p-4 md:p-6 border border-[#EAE3D9] flex flex-col transition-all duration-300 ${
+                            className={`group relative bg-white rounded-[16px] md:rounded-[30px] p-3 md:p-6 border border-[#EAE3D9] flex flex-col overflow-hidden transition-all duration-300 ${
                               isHabis ? "opacity-60 grayscale-[40%]" : "hover:shadow-lg hover:-translate-y-1"
                             }`}
                           >
                             {isHabis && (
-                              <div className="absolute top-3 right-3 md:top-5 md:right-5 z-10 bg-red-600/90 backdrop-blur-sm text-white text-[8px] md:text-[10px] font-bold px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-md tracking-wider">
+                              <div className="absolute top-2 right-2 z-10 bg-red-600/90 backdrop-blur-sm text-white text-[7px] md:text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md tracking-wider">
                                 HABIS
                               </div>
                             )}
 
-                            <div className="w-full h-32 md:h-44 bg-gray-50/50 rounded-xl mb-4 md:mb-5 p-3 flex items-center justify-center overflow-hidden border border-[#EAE3D9]/50">
+                            <div className="w-full h-28 md:h-44 bg-gray-50/50 rounded-xl mb-3 md:mb-5 p-2 md:p-3 flex items-center justify-center overflow-hidden border border-[#EAE3D9]/50">
                               <img 
                                 src={p.image_url || "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400"} 
                                 alt={p.product_name} 
@@ -277,46 +291,70 @@ export default function KatalogPage() {
                               />
                             </div>
 
-                            <div className="mb-3 md:mb-4">
-                              <div className="flex flex-wrap items-center gap-2 mb-2 md:mb-3">
-                                {/* Menampilkan Kategori / Tipe Produk */}
-                                <span className="inline-block px-2 py-1 md:px-3 bg-[#F8F3ED] text-[#660033] text-[8px] md:text-[10px] font-bold uppercase tracking-widest rounded-full">
-                                  {p.category || p.product_type || "Skincare"}
+                            <div className="mb-2 md:mb-4">
+                              <div className="flex flex-wrap items-center gap-1 mb-1 md:mb-3">
+                                <span className="inline-block px-1.5 py-0.5 md:px-3 md:py-1 bg-[#F8F3ED] text-[#660033] text-[7px] md:text-[10px] font-bold uppercase tracking-widest rounded-full">
+                                  {p.product_type || "Skincare"}
                                 </span>
                                 
-                                {/* Label MED-GRADE Khusus Klinik */}
-                                {medGradeBrands.includes((p.brand || "").toLowerCase()) && (
-                                  <span className="inline-flex items-center gap-1 bg-gradient-to-r from-[#660033] to-[#8B736D] text-white px-2 py-0.5 md:py-1 rounded text-[8px] md:text-[9px] font-bold uppercase tracking-widest shadow-sm w-fit">
-                                    ✦ MED-GRADE
+                                {p.is_medical_grade && (
+                                  <span className="inline-flex items-center gap-0.5 bg-gradient-to-r from-[#660033] to-[#8B736D] text-white px-1.5 py-0.5 rounded text-[6px] md:text-[9px] font-bold uppercase tracking-tight shadow-sm">
+                                    ✦ MEDICAL GRADE
                                   </span>
                                 )}
                               </div>
-                              <h3 className="text-sm md:text-lg font-bold text-[#3A2E2B] leading-tight mb-1 pr-6 md:pr-10 line-clamp-2">
+                              <h3 className="text-xs md:text-lg font-bold text-[#3A2E2B] leading-tight mb-0.5 line-clamp-2 min-h-[32px] md:min-h-0">
                                 {p.product_name}
                               </h3>
-                              <p className="text-[10px] md:text-xs text-[#A58D87] font-semibold line-clamp-1">{p.brand}</p>
+                              <p className="text-[9px] md:text-xs text-[#A58D87] font-semibold truncate">{p.brand}</p>
                             </div>
                             
-                            <div className="mt-auto pt-3 md:pt-4 border-t border-[#EAE3D9]/50">
-                              <p className="text-[10px] md:text-xs text-[#8B736D] line-clamp-1 md:line-clamp-2 mb-3 md:mb-4" title={p.ingredients_list}>
-                                <span className="font-bold">Bahan:</span> {p.ingredients_list}
-                              </p>
-                              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 mb-2 md:mb-4">
-                                <span className="text-[#660033] font-bold text-sm md:text-lg">
-                                  {formatRupiah(p.price)}
+                            <div className="mt-auto pt-2 md:pt-4 border-t border-[#EAE3D9]/50 flex items-center justify-between gap-1">
+                              <span className="text-[#660033] font-black text-xs md:text-lg whitespace-nowrap">
+                                {formatRupiah(p.price)}
+                              </span>
+                              {claim && claim !== 'General' && (
+                                <span className="text-[7px] md:text-[10px] bg-[#660033] text-white px-1.5 py-0.5 rounded font-medium shadow-sm max-w-[55px] md:max-w-none truncate whitespace-nowrap">
+                                  {claim.split(',')[0]}
                                 </span>
-                                {claim && claim !== 'General' && (
-                                  <span className="text-[8px] md:text-[10px] bg-[#660033] text-white px-2 py-1 rounded-md shadow-sm line-clamp-1">
-                                    {claim.split(',')[0]}
-                                  </span>
-                                )}
-                              </div>
-                              {isHabis && (
-                                <div className="w-full mt-2 md:mt-4 py-1.5 md:py-2 text-center text-[9px] md:text-[11px] font-bold tracking-widest text-red-500 bg-red-50 rounded-lg border border-red-100">
-                                  OUT OF STOCK
-                                </div>
                               )}
                             </div>
+
+                            <button 
+                              onClick={() => toggleIngredients(p.id)}
+                              className="md:hidden mt-2 w-full text-center py-1 bg-[#F8F3ED] text-[#660033] rounded-md text-[8px] font-bold tracking-wider uppercase border border-[#EAE3D9]/30"
+                            >
+                              {isExpanded ? 'Tutup ▲' : 'Ingredients ▼'}
+                            </button>
+
+                            <div className={`absolute inset-0 bg-[#660033]/95 text-[#FDFBF7] p-3 md:p-5 flex flex-col justify-center transition-opacity duration-500 z-20 overflow-y-auto custom-scrollbar ${isExpanded ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'}`}>
+                              
+                              <button 
+                                onClick={() => toggleIngredients(p.id)} 
+                                className="md:hidden absolute top-2 right-2 text-[#FDFBF7] bg-white/20 rounded-full w-5 h-5 flex items-center justify-center font-bold text-[9px]"
+                              >
+                                ✕
+                              </button>
+
+                              <p className="text-[8px] md:text-[10px] font-bold text-[#EAE3D9] uppercase tracking-wider mb-2 border-b border-white/10 pb-1">
+                                Hero Ingredients
+                              </p>
+                              
+                              <div className="flex flex-wrap gap-1">
+                                {p.ingredients_list 
+                                  ? p.ingredients_list.split(',').map((ingredient: string, idx: number) => (
+                                      <span 
+                                        key={idx} 
+                                        className="px-1 py-0.5 text-[7px] md:text-[9px] font-medium tracking-wide text-[#660033] bg-white border border-[#EAE3D9] rounded-[3px] whitespace-nowrap"
+                                      >
+                                        {ingredient.trim()}
+                                      </span>
+                                    ))
+                                  : <span className="text-[9px] text-white/70 italic">Belum ada data</span>
+                                }
+                              </div>
+                            </div>
+
                           </div>
                         );
                       })}
