@@ -257,13 +257,13 @@ export default function KlinikPage() {
               <span className="w-8 md:w-10 h-[1px] bg-[#660033]"></span>
               <span className="text-[#660033] text-[9px] md:text-[10px] font-black uppercase tracking-widest">Pusat Estetika</span>
             </div>
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#3A2E2B] mb-4 text-center md:text-left">Skin Clinic</h2>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#3A2E2B] mb-4 text-center md:text-left">SkinSight Derma Clinic</h2>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-6">
               <div className="flex gap-2.5 md:gap-3 items-start bg-gray-50/50 p-3 rounded-xl md:bg-transparent md:p-0">
                 <span className="text-lg md:text-xl">📍</span>
                 <p className="text-[#8B736D] text-[10px] md:text-sm leading-relaxed">
-                  Jl. Puebongo I, Boyaoge, Kec. Tatanga,<br className="hidden md:block" /> Kota Palu, Sulawesi Tengah 94111
+                  Jl. Localhost Raya No. 8080, <br className="hidden md:block" /> Kota Palu, Sulawesi Tengah 94111
                 </p>
               </div>
               <div className="flex gap-2.5 md:gap-3 items-start bg-gray-50/50 p-3 rounded-xl md:bg-transparent md:p-0">
@@ -428,8 +428,8 @@ export default function KlinikPage() {
 
           <div className="space-y-4 md:space-y-6">
             {[
-              { q: "Bolehkah saya datang hanya untuk membeli skincare?", a: "Sangat boleh. Di Klinik Azzahra, Anda dapat berkonsultasi dengan dokter untuk mendapatkan resep skincare medis tanpa harus mengambil tindakan treatment klinis." },
-              { q: "Dari mana data produk di katalog ini berasal?", a: "Seluruh produk dalam katalog kami adalah produk medis pilihan yang telah divalidasi komposisi bahan dan keamanannya oleh tim dermatologi internal Klinik Azzahra." },
+              { q: "Bolehkah saya datang hanya untuk membeli skincare?", a: "Sangat boleh. Di Klinik, Anda dapat berkonsultasi dengan dokter untuk mendapatkan resep skincare medis tanpa harus mengambil tindakan treatment klinis." },
+              { q: "Dari mana data produk di katalog ini berasal?", a: "Seluruh produk dalam katalog kami adalah produk medis pilihan yang telah divalidasi komposisi bahan dan keamanannya oleh tim dermatologi internal Klinik." },
               { q: "Apakah Reservasi WhatsApp ini bersifat final?", a: "Tim kami akan memverifikasi ketersediaan jadwal dokter dan mengonfirmasi reservasi Anda kembali melalui balasan chat WhatsApp." }
             ].map((faq, i) => (
               <div key={i} className="p-5 sm:p-6 md:p-8 bg-white rounded-[1.5rem] md:rounded-[2.5rem] flex flex-col md:flex-row items-start gap-4 md:gap-5 shadow-2xl shadow-black/20 hover:scale-[1.01] transition-transform">
